@@ -129,72 +129,85 @@ public final class TrieRouter<Output>: Router, CustomStringConvertible {
         return match.output
     }
 
-    /// Matches `path[index...]` below `node`: the constant child first, then the wildcard child, then the partial
-    /// children, each with the rest of the path matched recursively so that a dead end backtracks, then the node's own
-    /// catch-all. A parameter captured on a branch that fails is restored to its previous value, so `parameters` only
-    /// ever reflects the match.
+    /// Matches `path[startIndex...]` below `startNode`: the constant child first, then the wildcard child, then the
+    /// partial children, each with the rest of the path matched recursively so that a dead end backtracks, then the
+    /// node's own catch-all. A chain of constants with no alternative beside them is walked in a loop, so the common
+    /// case recurses only at real decision points. A parameter captured on a branch that fails is restored to its
+    /// previous value, so `parameters` only ever reflects the match.
     ///
     /// - Returns: The output and, for a catch-all match, the index of the first segment it swallowed.
     private func match(
         _ path: [String],
-        from index: Int,
-        at node: Node,
+        from startIndex: Int,
+        at startNode: Node,
         caseInsensitive: Bool,
         parameters: inout Parameters
     ) -> (output: Output, catchallStart: Int?)? {
-        guard index < path.count else {
-            // The whole path is consumed: only an output on this very node is a match. A catch-all needs at least
-            // one segment, so this node's catch-all does not apply; the caller falls back to its own.
-            return node.output.map { ($0, nil) }
-        }
+        var node = startNode
+        var index = startIndex
 
-        let slice = path[index]
-        if let constant = node.constants[caseInsensitive ? slice.lowercased() : slice],
-            let match = self.match(path, from: index + 1, at: constant, caseInsensitive: caseInsensitive, parameters: &parameters)
-        {
-            return match
-        }
+        while index < path.count {
+            let slice = path[index]
+            let constant = node.constants[caseInsensitive ? slice.lowercased() : slice]
 
-        if let wildcard = node.wildcard {
-            if let name = wildcard.parameter {
-                let previous = parameters.get(name)
-                parameters.set(name, to: slice)
-                if let match = self.match(
+            // No decision to make at this node: follow the constant without recursing.
+            if let constant = constant, node.wildcard == nil, node.partials.isEmpty, node.catchall == nil {
+                node = constant
+                index += 1
+                continue
+            }
+
+            if let constant = constant,
+                let match = self.match(path, from: index + 1, at: constant, caseInsensitive: caseInsensitive, parameters: &parameters)
+            {
+                return match
+            }
+
+            if let wildcard = node.wildcard {
+                if let name = wildcard.parameter {
+                    let previous = parameters.get(name)
+                    parameters.set(name, to: slice)
+                    if let match = self.match(
+                        path, from: index + 1, at: wildcard.node, caseInsensitive: caseInsensitive, parameters: &parameters)
+                    {
+                        return match
+                    }
+                    parameters.restore(name, to: previous)
+                } else if let match = self.match(
                     path, from: index + 1, at: wildcard.node, caseInsensitive: caseInsensitive, parameters: &parameters)
                 {
                     return match
                 }
-                parameters.restore(name, to: previous)
-            } else if let match = self.match(
-                path, from: index + 1, at: wildcard.node, caseInsensitive: caseInsensitive, parameters: &parameters)
-            {
-                return match
             }
+
+            for partial in node.partials {
+                guard let captures = self.captures(of: partial, in: slice) else { continue }
+                var previous: [(name: String, value: String?)] = []
+                previous.reserveCapacity(captures.count)
+                for (name, value) in captures {
+                    let name = String(name)
+                    previous.append((name: name, value: parameters.get(name)))
+                    parameters.set(name, to: String(value))
+                }
+                if let match = self.match(
+                    path, from: index + 1, at: partial.node, caseInsensitive: caseInsensitive, parameters: &parameters)
+                {
+                    return match
+                }
+                for (name, value) in previous.reversed() {
+                    parameters.restore(name, to: value)
+                }
+            }
+
+            if let catchall = node.catchall, let output = catchall.output {
+                return (output, index)
+            }
+            return nil
         }
 
-        for partial in node.partials {
-            guard let captures = self.captures(of: partial, in: slice) else { continue }
-            var previous: [(name: String, value: String?)] = []
-            previous.reserveCapacity(captures.count)
-            for (name, value) in captures {
-                let name = String(name)
-                previous.append((name: name, value: parameters.get(name)))
-                parameters.set(name, to: String(value))
-            }
-            if let match = self.match(
-                path, from: index + 1, at: partial.node, caseInsensitive: caseInsensitive, parameters: &parameters)
-            {
-                return match
-            }
-            for (name, value) in previous.reversed() {
-                parameters.restore(name, to: value)
-            }
-        }
-
-        if let catchall = node.catchall, let output = catchall.output {
-            return (output, index)
-        }
-        return nil
+        // The whole path is consumed: only an output on this very node is a match. A catch-all needs at least one
+        // segment, so this node's catch-all does not apply; the caller falls back to its own.
+        return node.output.map { ($0, nil) }
     }
 
     /// Matches one path segment against a partial template, literal parts verbatim and each parameter greedily up to
