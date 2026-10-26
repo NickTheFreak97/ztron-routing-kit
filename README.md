@@ -13,3 +13,22 @@
 <br>
 
 RoutingKit is a high-performance, trie-node router to route HTTP requests to the correct route handler. It allows for dynamic path parameters to make building web frameworks easy.
+
+## ZTronNavigationKit
+
+The `ZTronNavigationKit` product (module `ZNavigation`) adds the owner of *where the user is* on top of the trie: a
+`ZNavigator` holds one stack of `ZRoute` values, `ZNavigationStack` renders it on `NavigationStack` (iOS 16+) or on
+`NavigationView` with a chain of hidden `isActive` links (iOS 15) with identical observable behaviour, and
+`ZRouteLink` pushes a value instead of building a destination. Deep links reach the navigators through a
+`ZNavigationHub`. The design, the ZombieTron migration plan and the parity suite are documented in
+`Sources/ZNavigation/Docs.docc/UnifiedNavigationDesign.md`.
+
+```swift
+.product(name: "ZTronNavigationKit", package: "ztron-routing-kit")
+```
+
+Model-level tests run with `swift test`; the hosted parity suite needs an iOS simulator:
+
+```sh
+xcodebuild test -scheme ztron-routing-kit-Package -destination 'platform=iOS Simulator,name=iPhone 16 Pro' -only-testing:ZNavigationTests
+```
