@@ -1,167 +1,197 @@
+import Testing
+
 @testable import RoutingKit
-import XCTest
 
-final class RouterTests: XCTestCase {
-    func testRouter() throws {
-        let router = TrieRouter(Int.self)
-        router.register(42, at: ["foo", "bar", "baz", ":user"])
+@Suite
+struct RouterTests {
+    @Test("Simple Routing")
+    func routing() async throws {
+        var builder = TrieRouterBuilder(Int.self)
+        builder.register(42, at: ["foo", "bar", "baz", ":user"])
+        let router = builder.build()
         var params = Parameters()
-        XCTAssertEqual(router.route(path: ["foo", "bar", "baz", "Tanner"], parameters: &params), 42)
-        XCTAssertEqual(params.get("user"), "Tanner")
+        #expect(router.route(path: ["foo", "bar", "baz", "Tanner"], parameters: &params) == 42)
+        #expect(params.get("user") == "Tanner")
     }
 
-    func testCaseSensitiveRouting() throws {
-        let router = TrieRouter<Int>()
-        router.register(42, at: [.constant("path"), .constant("TO"), .constant("fOo")])
+    @Test("Case-sensitive Routing")
+    func caseSensitiveRouting() throws {
+        var builder = TrieRouterBuilder<Int>()
+        builder.register(42, at: [.constant("path"), .constant("TO"), .constant("fOo")])
+        let router = builder.build()
         var params = Parameters()
-        XCTAssertNil(router.route(path: ["PATH", "tO", "FOo"], parameters: &params))
-        XCTAssertEqual(router.route(path: ["path", "TO", "fOo"], parameters: &params), 42)
+        #expect(router.route(path: ["PATH", "tO", "FOo"], parameters: &params) == nil)
+        #expect(router.route(path: ["path", "TO", "fOo"], parameters: &params) == 42)
     }
 
-    func testCaseInsensitiveRouting() throws {
-        let router = TrieRouter<Int>(options: [.caseInsensitive])
-        router.register(42, at: [.constant("path"), .constant("TO"), .constant("fOo")])
+    @Test("Case-insensitive Routing")
+    func caseInsensitiveRouting() throws {
+        var builder = TrieRouterBuilder<Int>(config: .caseInsensitive)
+        builder.register(42, at: [.constant("path"), .constant("TO"), .constant("fOo")])
+        let router = builder.build()
         var params = Parameters()
-        XCTAssertEqual(router.route(path: ["PATH", "tO", "FOo"], parameters: &params), 42)
+        #expect(router.route(path: ["PATH", "tO", "FOo"], parameters: &params) == 42)
     }
 
-    func testAnyRouting() throws {
-        let router = TrieRouter<Int>()
-        router.register(0, at: [.constant("a"), .anything])
-        router.register(1, at: [.constant("b"), .parameter("1"), .anything])
-        router.register(2, at: [.constant("c"), .parameter("1"), .parameter("2"), .anything])
-        router.register(3, at: [.constant("d"), .parameter("1"), .parameter("2")])
-        router.register(4, at: [.constant("e"), .parameter("1"), .catchall])
-        router.register(5, at: [.anything, .constant("e"), .parameter("1")])
+    @Test("Any Routing")
+    func anyRouting() throws {
+        var builder = TrieRouterBuilder<Int>()
+        builder.register(0, at: [.constant("a"), .anything])
+        builder.register(1, at: [.constant("b"), .parameter("1"), .anything])
+        builder.register(2, at: [.constant("c"), .parameter("1"), .parameter("2"), .anything])
+        builder.register(3, at: [.constant("d"), .parameter("1"), .parameter("2")])
+        builder.register(4, at: [.constant("e"), .parameter("1"), .catchall])
+        builder.register(5, at: [.anything, .constant("e"), .parameter("1")])
 
+        let router = builder.build()
         var params = Parameters()
-        XCTAssertEqual(router.route(path: ["a", "b"], parameters: &params), 0)
-        XCTAssertNil(router.route(path: ["a"], parameters: &params))
-        XCTAssertEqual(router.route(path: ["a", "a"], parameters: &params), 0)
-        XCTAssertEqual(router.route(path: ["b", "a", "c"], parameters: &params), 1)
-        XCTAssertNil(router.route(path: ["b"], parameters: &params))
-        XCTAssertNil(router.route(path: ["b", "a"], parameters: &params))
-        XCTAssertEqual(router.route(path: ["b", "a", "c"], parameters: &params), 1)
-        XCTAssertNil(router.route(path: ["c"], parameters: &params))
-        XCTAssertNil(router.route(path: ["c", "a"], parameters: &params))
-        XCTAssertNil(router.route(path: ["c", "b"], parameters: &params))
-        XCTAssertEqual(router.route(path: ["d", "a", "b"], parameters: &params), 3)
-        XCTAssertNil(router.route(path: ["d", "a", "b", "c"], parameters: &params))
-        XCTAssertNil(router.route(path: ["d", "a"], parameters: &params))
-        XCTAssertEqual(router.route(path: ["e", "1", "b", "a"], parameters: &params), 4)
-        XCTAssertEqual(router.route(path: ["f", "e", "1"], parameters: &params), 5)
-        XCTAssertEqual(router.route(path: ["g", "e", "1"], parameters: &params), 5)
-        XCTAssertEqual(router.route(path: ["g", "e", "1"], parameters: &params), 5)
+        #expect(router.route(path: ["a", "b"], parameters: &params) == 0)
+        #expect(router.route(path: ["a"], parameters: &params) == nil)
+        #expect(router.route(path: ["a", "a"], parameters: &params) == 0)
+        #expect(router.route(path: ["b", "a", "c"], parameters: &params) == 1)
+        #expect(router.route(path: ["b"], parameters: &params) == nil)
+        #expect(router.route(path: ["b", "a"], parameters: &params) == nil)
+        #expect(router.route(path: ["b", "a", "c"], parameters: &params) == 1)
+        #expect(router.route(path: ["c"], parameters: &params) == nil)
+        #expect(router.route(path: ["c", "a"], parameters: &params) == nil)
+        #expect(router.route(path: ["c", "b"], parameters: &params) == nil)
+        #expect(router.route(path: ["d", "a", "b"], parameters: &params) == 3)
+        #expect(router.route(path: ["d", "a", "b", "c"], parameters: &params) == nil)
+        #expect(router.route(path: ["d", "a"], parameters: &params) == nil)
+        #expect(router.route(path: ["e", "1", "b", "a"], parameters: &params) == 4)
+        #expect(router.route(path: ["f", "e", "1"], parameters: &params) == 5)
+        #expect(router.route(path: ["g", "e", "1"], parameters: &params) == 5)
+        #expect(router.route(path: ["g", "e", "1"], parameters: &params) == 5)
     }
 
-    func testWildcardRoutingHasNoPrecedence() throws {
-        let router1 = TrieRouter<Int>()
-        router1.register(0, at: [.constant("a"), .parameter("1"), .constant("a")])
-        router1.register(1, at: [.constant("a"), .anything, .constant("b")])
+    @Test("Wildcard Routing has no Precedence")
+    func wildcardRoutingHasNoPrecedence() throws {
+        var builder1 = TrieRouterBuilder<Int>()
+        builder1.register(0, at: [.constant("a"), .parameter("1"), .constant("a")])
+        builder1.register(1, at: [.constant("a"), .anything, .constant("b")])
+        let router1 = builder1.build()
 
-        let router2 = TrieRouter<Int>()
-        router2.register(0, at: [.constant("a"), .anything, .constant("a")])
-        router2.register(1, at: [.constant("a"), .anything, .constant("b")])
+        var builder2 = TrieRouterBuilder<Int>()
+        builder2.register(0, at: [.constant("a"), .anything, .constant("a")])
+        builder2.register(1, at: [.constant("a"), .anything, .constant("b")])
+        let router2 = builder2.build()
 
         var params1 = Parameters()
         var params2 = Parameters()
         let path = ["a", "1", "b"]
 
-        XCTAssertEqual(router1.route(path: path, parameters: &params1), 1)
-        XCTAssertEqual(router2.route(path: path, parameters: &params2), 1)
+        #expect(router1.route(path: path, parameters: &params1) == 1)
+        #expect(router2.route(path: path, parameters: &params2) == 1)
     }
 
-    func testRouterSuffixes() throws {
-        let router = TrieRouter<Int>(options: [.caseInsensitive])
-        router.register(1, at: [.constant("a")])
-        router.register(2, at: [.constant("aa")])
+    @Test("Router Suffixes")
+    func routerSuffixes() throws {
+        var builder = TrieRouterBuilder<Int>(config: .caseInsensitive)
+        builder.register(1, at: [.constant("a")])
+        builder.register(2, at: [.constant("aa")])
+        let router = builder.build()
 
         var params = Parameters()
-        XCTAssertEqual(router.route(path: ["a"], parameters: &params), 1)
-        XCTAssertEqual(router.route(path: ["aa"], parameters: &params), 2)
+        #expect(router.route(path: ["a"], parameters: &params) == 1)
+        #expect(router.route(path: ["aa"], parameters: &params) == 2)
     }
 
-    func testDocBlock() throws {
-        let router = TrieRouter<Int>()
-        router.register(42, at: ["users", ":user"])
+    @Test("Doc Block")
+    func docBlock() throws {
+        var builder = TrieRouterBuilder<Int>()
+        builder.register(42, at: ["users", ":user"])
+        let router = builder.build()
 
         var params = Parameters()
-        XCTAssertEqual(router.route(path: ["users", "Tanner"], parameters: &params), 42)
-        XCTAssertEqual(params.get("user"), "Tanner")
+        #expect(router.route(path: ["users", "Tanner"], parameters: &params) == 42)
+        #expect(params.get("user") == "Tanner")
     }
 
-    func testDocs() throws {
-        let router = TrieRouter(Double.self)
-        router.register(42, at: ["fun", "meaning_of_universe"])
-        router.register(1337, at: ["fun", "leet"])
-        router.register(3.14, at: ["math", "pi"])
+    @Test("Docs")
+    func docs() throws {
+        var builder = TrieRouterBuilder(Double.self)
+        builder.register(42, at: ["fun", "meaning_of_universe"])
+        builder.register(1337, at: ["fun", "leet"])
+        builder.register(3.14, at: ["math", "pi"])
+
+        let router = builder.build()
         var params = Parameters()
-        XCTAssertEqual(router.route(path: ["fun", "meaning_of_universe"], parameters: &params), 42)
+        #expect(router.route(path: ["fun", "meaning_of_universe"], parameters: &params) == 42)
     }
 
-    // https://github.com/vapor/routing/issues/64
-    func testParameterPercentDecoding() throws {
-        let router = TrieRouter(String.self)
-        router.register("c", at: [.constant("a"), .parameter("b")])
-        var params = Parameters()
-        XCTAssertEqual(router.route(path: ["a", "te%20st"], parameters: &params), "c")
-        XCTAssertEqual(params.get("b"), "te st")
-    }
-
-    // https://github.com/vapor/routing-kit/issues/74
-    func testCatchallNested() throws {
-        let router = TrieRouter(String.self)
-        router.register("/**", at: [.catchall])
-        router.register("/a/**", at: ["a", .catchall])
-        router.register("/a/b/**", at: ["a", "b", .catchall])
-        router.register("/a/b", at: ["a", "b"])
-        var params = Parameters()
-        XCTAssertEqual(router.route(path: ["a"], parameters: &params), "/**")
-        XCTAssertEqual(router.route(path: ["a", "b"], parameters: &params), "/a/b")
-        XCTAssertEqual(router.route(path: ["a", "b", "c"], parameters: &params), "/a/b/**")
-        XCTAssertEqual(router.route(path: ["a", "c"], parameters: &params), "/a/**")
-        XCTAssertEqual(router.route(path: ["b"], parameters: &params), "/**")
-        XCTAssertEqual(router.route(path: ["b", "c", "d", "e"], parameters: &params), "/**")
-    }
-
-    func testCatchallPrecedence() throws {
-        let router = TrieRouter(String.self)
-        router.register("a", at: ["v1", "test"])
-        router.register("b", at: ["v1", .catchall])
-        router.register("c", at: ["v1", .anything])
-        var params = Parameters()
-        XCTAssertEqual(router.route(path: ["v1", "test"], parameters: &params), "a")
-        XCTAssertEqual(router.route(path: ["v1", "test", "foo"], parameters: &params), "b")
-        XCTAssertEqual(router.route(path: ["v1", "foo"], parameters: &params), "c")
-    }
-
-    func testCatchallValue() throws {
-        let router = TrieRouter<Int>()
-        router.register(42, at: ["users", ":user", "**"])
-        router.register(24, at: ["users", "**"])
+    @Test("Parameter Percent-encoding", .bug("https://github.com/vapor/routing/issues/64"))
+    func parameterPercentDecoding() throws {
+        var builder = TrieRouterBuilder(String.self)
+        builder.register("c", at: [.constant("a"), .parameter("b")])
+        let router = builder.build()
 
         var params = Parameters()
-        XCTAssertNil(router.route(path: ["users"], parameters: &params))
-        XCTAssertEqual(params.getCatchall().count, 0)
-        XCTAssertEqual(router.route(path: ["users", "stevapple"], parameters: &params), 24)
-        XCTAssertEqual(params.getCatchall(), ["stevapple"])
-        XCTAssertEqual(router.route(path: ["users", "stevapple", "posts", "2"], parameters: &params), 42)
-        XCTAssertEqual(params.getCatchall(), ["posts", "2"])
+        #expect(router.route(path: ["a", "te%20st"], parameters: &params) == "c")
+        #expect(params.get("b") == "te st")
     }
 
-    func testRouterDescription() throws {
+    @Test("Nested Catch-all", .bug("https://github.com/vapor/routing-kit/issues/74"))
+    func catchallNested() throws {
+        var builder = TrieRouterBuilder(String.self)
+        builder.register("/**", at: [.catchall])
+        builder.register("/a/**", at: ["a", .catchall])
+        builder.register("/a/b/**", at: ["a", "b", .catchall])
+        builder.register("/a/b", at: ["a", "b"])
+        let router = builder.build()
+
+        var params = Parameters()
+        #expect(router.route(path: ["a"], parameters: &params) == "/**")
+        #expect(router.route(path: ["a", "b"], parameters: &params) == "/a/b")
+        #expect(router.route(path: ["a", "b", "c"], parameters: &params) == "/a/b/**")
+        #expect(router.route(path: ["a", "c"], parameters: &params) == "/a/**")
+        #expect(router.route(path: ["b"], parameters: &params) == "/**")
+        #expect(router.route(path: ["b", "c", "d", "e"], parameters: &params) == "/**")
+    }
+
+    @Test("Catch-all Precedence")
+    func catchallPrecedence() throws {
+        var builder = TrieRouterBuilder(String.self)
+        builder.register("a", at: ["v1", "test"])
+        builder.register("b", at: ["v1", .catchall])
+        builder.register("c", at: ["v1", .anything])
+        let router = builder.build()
+
+        var params = Parameters()
+        #expect(router.route(path: ["v1", "test"], parameters: &params) == "a")
+        #expect(router.route(path: ["v1", "test", "foo"], parameters: &params) == "b")
+        #expect(router.route(path: ["v1", "foo"], parameters: &params) == "c")
+    }
+
+    @Test("Catch-all Value")
+    func catchallValue() throws {
+        var builder = TrieRouterBuilder<Int>()
+        builder.register(42, at: ["users", ":user", "**"])
+        builder.register(24, at: ["users", "**"])
+        let router = builder.build()
+
+        var params = Parameters()
+        #expect(router.route(path: ["users"], parameters: &params) == nil)
+        #expect(params.getCatchall().isEmpty)
+        #expect(router.route(path: ["users", "stevapple"], parameters: &params) == 24)
+        #expect(params.getCatchall() == ["stevapple"])
+        #expect(router.route(path: ["users", "stevapple", "posts", "2"], parameters: &params) == 42)
+        #expect(params.getCatchall() == ["posts", "2"])
+    }
+
+    @Test("Router Description")
+    func routerDescription() throws {
         // Use simple routing to eliminate the impact of registration order
         let constA: PathComponent = "a"
         let constOne: PathComponent = "1"
         let paramOne: PathComponent = .parameter("1")
         let anything: PathComponent = .anything
         let catchall: PathComponent = .catchall
-        let router = TrieRouter<Int>()
-        router.register(0, at: [constA, anything])
-        router.register(1, at: [constA, constOne, catchall])
-        router.register(2, at: [constA, constOne, anything])
-        router.register(3, at: [anything, constA, paramOne])
-        router.register(4, at: [catchall])
+        var builder = TrieRouterBuilder<Int>()
+        builder.register(0, at: [constA, anything])
+        builder.register(1, at: [constA, constOne, catchall])
+        builder.register(2, at: [constA, constOne, anything])
+        builder.register(3, at: [anything, constA, paramOne])
+        builder.register(4, at: [catchall])
         // Manually build description
         let desc = """
             → \(constA)
@@ -174,10 +204,12 @@ final class RouterTests: XCTestCase {
                 → \(paramOne)
             → \(catchall)
             """
-        XCTAssertEqual(router.description, desc)
+        let router = builder.build()
+        #expect(router.description == desc)
     }
 
-    func testPathComponentDescription() throws {
+    @Test("Path Component Description")
+    func pathComponentDescription() throws {
         let paths = [
             "aaaaa/bbbb/ccc/dd",
             "123/:45/6/789",
@@ -186,28 +218,29 @@ final class RouterTests: XCTestCase {
             ":12/12/*",
         ]
         for path in paths {
-            XCTAssertEqual(path.pathComponents.string, path)
-            XCTAssertEqual(("/" + path).pathComponents.string, path)
+            #expect(path.pathComponents.string == path)
+            #expect(("/" + path).pathComponents.string == path)
         }
     }
 
+    @Test("Path Component Interpolation")
     func testPathComponentInterpolation() throws {
         do {
             let pathComponentLiteral: PathComponent = "path"
             switch pathComponentLiteral {
             case .constant(let value):
-                XCTAssertEqual(value, "path")
+                #expect(value == "path")
             default:
-                XCTFail("pathComponentLiteral \(pathComponentLiteral) is not .constant(\"path\")")
+                Issue.record("pathComponentLiteral \(pathComponentLiteral) is not .constant(\"path\")")
             }
         }
         do {
             let pathComponentLiteral: PathComponent = ":path"
             switch pathComponentLiteral {
             case .parameter(let value):
-                XCTAssertEqual(value, "path")
+                #expect(value == "path")
             default:
-                XCTFail("pathComponentLiteral \(pathComponentLiteral) is not .parameter(\"path\")")
+                Issue.record("pathComponentLiteral \(pathComponentLiteral) is not .parameter(\"path\")")
             }
         }
         do {
@@ -216,7 +249,7 @@ final class RouterTests: XCTestCase {
             case .anything:
                 break
             default:
-                XCTFail("pathComponentLiteral \(pathComponentLiteral) is not .anything")
+                Issue.record("pathComponentLiteral \(pathComponentLiteral) is not .anything")
             }
         }
         do {
@@ -225,7 +258,7 @@ final class RouterTests: XCTestCase {
             case .catchall:
                 break
             default:
-                XCTFail("pathComponentLiteral \(pathComponentLiteral) is not .catchall")
+                Issue.record("pathComponentLiteral \(pathComponentLiteral) is not .catchall")
             }
         }
         do {
@@ -233,9 +266,9 @@ final class RouterTests: XCTestCase {
             let pathComponentInterpolation: PathComponent = "\(constant)"
             switch pathComponentInterpolation {
             case .constant(let value):
-                XCTAssertEqual(value, "foo")
+                #expect(value == "foo")
             default:
-                XCTFail("pathComponentInterpolation \(pathComponentInterpolation) is not .constant(\"foo\")")
+                Issue.record("pathComponentInterpolation \(pathComponentInterpolation) is not .constant(\"foo\")")
             }
         }
         do {
@@ -243,9 +276,9 @@ final class RouterTests: XCTestCase {
             let pathComponentInterpolation: PathComponent = ":\(parameter)"
             switch pathComponentInterpolation {
             case .parameter(let value):
-                XCTAssertEqual(value, "foo")
+                #expect(value == "foo")
             default:
-                XCTFail("pathComponentInterpolation \(pathComponentInterpolation) is not .parameter(\"foo\")")
+                Issue.record("pathComponentInterpolation \(pathComponentInterpolation) is not .parameter(\"foo\")")
             }
         }
         do {
@@ -255,7 +288,7 @@ final class RouterTests: XCTestCase {
             case .anything:
                 break
             default:
-                XCTFail("pathComponentInterpolation \(pathComponentInterpolation) is not .anything")
+                Issue.record("pathComponentInterpolation \(pathComponentInterpolation) is not .anything")
             }
         }
         do {
@@ -265,306 +298,169 @@ final class RouterTests: XCTestCase {
             case .catchall:
                 break
             default:
-                XCTFail("pathComponentInterpolation \(pathComponentInterpolation) is not .catchall")
+                Issue.record("pathComponentInterpolation \(pathComponentInterpolation) is not .catchall")
             }
         }
     }
 
-    func testParameterNamesFetch() throws {
-        let router = TrieRouter<Int>()
-        router.register(42, at: ["foo", ":bar", ":baz", ":bam"])
-        router.register(24, at: ["bar", ":bar", "**"])
+    @Test("Parameter Name Fetch")
+    func parameterNamesFetch() throws {
+        var builder = TrieRouterBuilder<Int>()
+        builder.register(42, at: ["foo", ":bar", ":baz", ":bam"])
+        builder.register(24, at: ["bar", ":bar", "**"])
+        let router = builder.build()
 
         var params1 = Parameters()
-        XCTAssertNil(router.route(path: ["foo"], parameters: &params1))
-        XCTAssertTrue(params1.getCatchall().isEmpty)
+        #expect(router.route(path: ["foo"], parameters: &params1) == nil)
+        #expect(params1.getCatchall().isEmpty)
 
         var params2 = Parameters()
-        XCTAssertEqual(router.route(path: ["foo", "a", "b", "c"], parameters: &params2), 42)
-        XCTAssertEqual(Set(params2.allNames), ["bar", "baz", "bam"])  // Set will compare equal regardless of ordering
-        XCTAssertTrue(params2.getCatchall().isEmpty)
+        #expect(router.route(path: ["foo", "a", "b", "c"], parameters: &params2) == 42)
+        #expect(Set(params2.allNames) == ["bar", "baz", "bam"])  // Set will compare equal regardless of ordering
+        #expect(params2.getCatchall().isEmpty)
 
         var params3 = Parameters()
-        XCTAssertEqual(router.route(path: ["bar", "baz", "bam"], parameters: &params3), 24)
-        XCTAssertEqual(Set(params3.allNames), ["bar"])
-        XCTAssertEqual(params3.getCatchall(), ["bam"])
+        #expect(router.route(path: ["bar", "baz", "bam"], parameters: &params3) == 24)
+        #expect(Set(params3.allNames) == ["bar"])
+        #expect(params3.getCatchall() == ["bam"])
     }
-    
-    func testConstantNeighboursFetch() throws {
-        let router = TrieRouter<Int>()
-        router.register(42, at: ["foo", "bar", "yoo"])
-        router.register(24, at: ["bar", "bar"])
-        router.register(12, at: ["bar", "man"])
-        router.register(6, at: ["bar", "man", ":yoo"])
-        router.register(12, at: ["bar", "man", "joe"])
 
-        let neighbours = router.neighbours(path: ["bar"])
-        
-        XCTAssertNotNil(neighbours)
-        XCTAssertNotNil(neighbours?.firstIndex(where: { node in
-            return node.getOutput() == 24
-        }))
-        XCTAssertNotNil(neighbours?.firstIndex(where: { node in
-            return node.getOutput() == 12
-        }))
-        XCTAssertNil(neighbours?.firstIndex(where: { node in
-            return node.getOutput() == 6
-        }))
-        XCTAssertEqual(neighbours?.count, 2)
-        
-        let emptyRouter = TrieRouter<Int>()
-        let emptyNeighbours = emptyRouter.neighbours(path: [])
-        
-        XCTAssertEqual(emptyNeighbours?.count, 0)
-        
-        let level1LeavesRouter = TrieRouter<Int>()
-        level1LeavesRouter.register(12, at: ["foo"])
-        level1LeavesRouter.register(6, at: ["bar"])
-        
-        let rootNeighbours = level1LeavesRouter.neighbours(path: [])
-        
-        XCTAssertNotNil(rootNeighbours)
-        XCTAssertEqual(rootNeighbours?.count, 2)
-        XCTAssertTrue(rootNeighbours?.firstIndex(where: { node in
-            return node.getOutput() == 12
-        }) != nil)
-        XCTAssertTrue(rootNeighbours?.firstIndex(where: { node in
-            return node.getOutput() == 6
-        }) != nil)
-        XCTAssertFalse(rootNeighbours?.firstIndex(where: { node in
-            return node.getOutput() == 3
-        }) != nil)
+    @Test("Partial Happy Path")
+    func partialHappyPath() throws {
+        var routerBuilder = TrieRouterBuilder<Int>()
+        routerBuilder.register(42, at: ["test", ":{my-file}.json"])
+        routerBuilder.register(41, at: ["test", ":{my}-test-{file}.{extension}"])
 
+        let router = routerBuilder.build()
+
+        var params = Parameters()
+        #expect(router.route(path: ["test", "report.json"], parameters: &params) == 42)
+        #expect(params.get("my-file") == "report")
+
+        #expect(router.route(path: ["test", ".json.json"], parameters: &params) == 42)
+        #expect(params.get("my-file") == ".json")
+
+        params = Parameters()
+        #expect(router.route(path: ["test", "foo-test-bar.txt"], parameters: &params) == 41)
+        #expect(params.get("my") == "foo")
+        #expect(params.get("file") == "bar")
+        #expect(params.get("extension") == "txt")
     }
-    
-    func testMap() throws {
-        let router = TrieRouter<Int>()
-        router.register(0, at: [">", "Police", "zoom"])
-        router.register(1, at: [">", "Police"])
-        router.register(2, at: [">", "Depot"])
-        router.register(3, at: [">", "Shutters"])
-        router.register(4, at: [">", "Cakes"])
-        router.register(5, at: [">", "SpacelandSign", "zoom"])
-        router.register(6, at: [">", "SpacelandSign"])
 
-        router.map { absolutePath, output in
-            return absolutePath
-        }.forEach { path in
-            print(path)
-        }
+    @Test("Partial Param at Start or End")
+    func partialParamAtStartAndEnd() throws {
+        var builder = TrieRouterBuilder<Int>()
+        builder.register(10, at: ["p", ":{a}-suffix"])
+        builder.register(11, at: ["p", ":prefix-{b}"])
+
+        let router = builder.build()
+
+        var params = Parameters()
+        #expect(router.route(path: ["p", "foo-suffix"], parameters: &params) == 10)
+        #expect(params.get("a") == "foo")
+
+        params = Parameters()
+        #expect(router.route(path: ["p", "prefix-bar"], parameters: &params) == 11)
+        #expect(params.get("b") == "bar")
     }
-    
-    func testForEachBFS() throws {
-        let router = TrieRouter<(String, Int)>()
-        router.register(("PoliceZoom", 0), at: [">", "Police", "zoom"])
-        router.register(("Police", 0), at: [">", "Police"])
-        router.register(("Depot", 1), at: [">", "Depot"])
-        router.register(("Shutters", 2), at: [">", "Shutters"])
-        router.register(("Cakes", 3), at: [">", "Cakes"])
-        router.register(("SpacelandSignZoom", 0), at: [">", "SpacelandSign", "zoom"])
-        router.register(("SpacelandSign", 4), at: [">", "SpacelandSign"])
-        router.register(("SpacelandSignZoomRaveZoom", 0), at: [">", "SpacelandSign", "zoom", "rave", "zoom"])
 
-        print(router.toDOT{ absolutePath, output in
-            if let output = output {
-                return output.0
-            } else {
-                return absolutePath.last!
+    // Exit tests are not available on these platforms
+    #if swift(>=6.2) && !os(Android) && !os(iOS)
+        @Test("Partial Unclosed Parameter Fails")
+        func testPartialUnclosedParameterFails() async throws {
+            await #expect(processExitsWith: .failure) {
+                var builder = TrieRouterBuilder<Int>()
+                builder.register(20, at: ["p", ":{open"])
             }
-        })
-        
-        router.forEachBFS { neighbours in
-            return neighbours.sorted { lhs, rhs in
-                guard let lhsOut = lhs.getOutput(), let rhsOut = rhs.getOutput() else { return false }
-                return lhsOut.1 < rhsOut.1
+        }
+
+        @Test("Same name partial parameter fails")
+        func sameNamePartialParameter() async throws {
+            await #expect(processExitsWith: .failure) {
+                var b = TrieRouterBuilder<Int>()
+                b.register(1, at: [":{param}.{param}"])
             }
-        } shouldVisitNeighbours: { nodeInfo in
-            return nodeInfo.getAbsolutePath().count <= 1
-        } _: { path, output in
-            print(path, output)
         }
-    }
-    
-    /// Tests successful, now `<`, `<=`, `sharesRoutes` became `internal` and therefore the ability to run this test is missing.
-    /*
-    func testArrayLessThanOperator() throws {
-        XCTAssertEqual([">", "police", "zoom"] < [">", "police"], false)
-        XCTAssertEqual([">", "police", "zoom"] < [">", "police", "zoom"], false)
-        XCTAssertEqual([">", "police", "zoom"] <= [">", "police", "zoom"], true)
-        XCTAssertEqual([">", "police"] < [">", "police", "zoom"], true)
-        XCTAssertEqual([] < [], false)
-        XCTAssertEqual([] <= [], true)
-    }
-    
-    func testSharesRoutes() throws {
-        let lhs = TrieRouter<(String, Int)>()
-        let rhs = TrieRouter<(String, Double)>()
+    #endif
 
-        XCTAssertEqual(lhs.sharesRoutes(with: rhs), true)
-        XCTAssertEqual(rhs.sharesRoutes(with: lhs), true)
-        
-        lhs.register(("PoliceZoom", 0), at: [">", "Police", "zoom"])
-        lhs.register(("Police", 0), at: [">", "Police"])
-        lhs.register(("Depot", 1), at: [">", "Depot"])
-        lhs.register(("Shutters", 2), at: [">", "Shutters"])
-        lhs.register(("Cakes", 3), at: [">", "Cakes"])
-        lhs.register(("SpacelandSignZoom", 0), at: [">", "SpacelandSign", "zoom"])
-        lhs.register(("SpacelandSign", 4), at: [">", "SpacelandSign"])
-        
-        rhs.register(("SpacelandSignZoom", 0), at: [">", "SpacelandSign", "zoom"])
-        rhs.register(("SpacelandSign", 4), at: [">", "SpacelandSign"])
-        rhs.register(("Police", 0), at: [">", "Police"])
-        rhs.register(("PoliceZoom", 0), at: [">", "Police", "zoom"])
-        rhs.register(("Shutters", 2), at: [">", "Shutters"])
-        rhs.register(("Depot", 1), at: [">", "Depot"])
-        rhs.register(("Cakes", 3), at: [">", "Cakes"])
+    @Test("Partial Greedy Anchors")
+    func testPartialGreedyAnchors() throws {
+        var builder = TrieRouterBuilder<Int>()
+        builder.register(1, at: ["x", ":{a}.json.json"])
+        builder.register(2, at: ["x", ":{a}.json"])
+        let router = builder.build()
 
-        XCTAssertEqual(lhs.sharesRoutes(with: rhs), true)
-        XCTAssertEqual(rhs.sharesRoutes(with: lhs), true)
-        
-        lhs.register(("SpacelandSignZoomRaveZoom", 0), at: [">", "SpacelandSign", "zoom", "rave", "zoom"])
-        
-        XCTAssertEqual(lhs.sharesRoutes(with: rhs), false)
-        XCTAssertEqual(rhs.sharesRoutes(with: lhs), false)
+        var p = Parameters()
+        #expect(router.route(path: ["x", ".json.json"], parameters: &p) == 1)
+        #expect(p.get("a") == "")
+        p = Parameters()
+        #expect(router.route(path: ["x", "file.json"], parameters: &p) == 2)
+        #expect(p.get("a") == "file")
     }
-     */
-    
-    func testZipRouters() throws {
-        let lhs = TrieRouter<(String, Int)>()
-        let rhs = TrieRouter<(String, Double)>()
-        
-        lhs.register(("PoliceZoom", 0), at: [">", "Police", "zoom"])
-        lhs.register(("Police", 0), at: [">", "Police"])
-        lhs.register(("Depot", 1), at: [">", "Depot"])
-        lhs.register(("Shutters", 2), at: [">", "Shutters"])
-        lhs.register(("Cakes", 3), at: [">", "Cakes"])
-        lhs.register(("SpacelandSignZoom", 0), at: [">", "SpacelandSign", "zoom"])
-        lhs.register(("SpacelandSign", 4), at: [">", "SpacelandSign"])
-        
-        rhs.register(("SpacelandSignZoom", 0), at: [">", "SpacelandSign", "zoom"])
-        rhs.register(("SpacelandSign", 4), at: [">", "SpacelandSign"])
-        rhs.register(("Police", 0), at: [">", "Police"])
-        rhs.register(("PoliceZoom", 0), at: [">", "Police", "zoom"])
-        rhs.register(("Shutters", 2), at: [">", "Shutters"])
-        rhs.register(("Depot", 1), at: [">", "Depot"])
-        rhs.register(("Cakes", 3), at: [">", "Cakes"])
-        
-        let zip = lhs.zip(to: rhs) { absolutePath, lhsOutput, rhsOutput in
-            return (lhsOutput, rhsOutput)
-        }
-        
-        XCTAssertNotNil(zip)
-        
-        zip?.forEach{ absolutePath, output in
-            XCTAssertEqual(output.0.0, output.1.0)
-        }
-        
-        lhs.register(("SpacelandSignZoomRaveZoom", 0), at: [">", "SpacelandSign", "zoom", "rave", "zoom"])
 
-        let second = lhs.zip(to: rhs) { absolutePath, lhsOutput, rhsOutput in
-            return (lhsOutput, rhsOutput)
-        }
-        
-        XCTAssertNil(second)
+    @Test("Partial Ordering Specificity")
+    func testPartialOrderingSpecificity() throws {
+        var b = TrieRouterBuilder<Int>()
+        b.register(1, at: ["y", ":{a}.{ext}"])
+        b.register(2, at: ["y", ":prefix-{b}.txt"])
+        let r = b.build()
+
+        var p = Parameters()
+        #expect(r.route(path: ["y", "prefix-foo.txt"], parameters: &p) == 2)
+        #expect(p.get("b") == "foo")
+        p = Parameters()
+        #expect(r.route(path: ["y", "file.md"], parameters: &p) == 1)
     }
-    
-    func testHasSlice() throws {
-        let lhs = TrieRouter<(String, Int)>()
-        
-        lhs.register(("PoliceZoom", 0), at: [">", "Police", "zoom"])
-        lhs.register(("Police", 0), at: [">", "Police"])
-        lhs.register(("Depot", 1), at: [">", "Depot"])
-        lhs.register(("Shutters", 2), at: [">", "Shutters"])
-        lhs.register(("Cakes", 3), at: [">", "Cakes"])
-        lhs.register(("SpacelandSignZoom", 0), at: [">", "SpacelandSign", "zoom"])
-        lhs.register(("SpacelandSign", 4), at: [">", "SpacelandSign"])
-        
-        XCTAssertTrue(lhs.hasSlice(named: ">"))
-        XCTAssertTrue(lhs.hasSlice(named: "Depot"))
-        XCTAssertTrue(lhs.hasSlice(named: "zoom"))
-        XCTAssertFalse(lhs.hasSlice(named: "zoom", rootPath: [">", "Cakes"]))
+
+    @Test("Catchall catches empty path", .bug("https://github.com/vapor/routing-kit/issues/147"))
+    func emptyCatchall() throws {
+        var b = TrieRouterBuilder<Int>()
+        b.register(1, at: [.catchall])
+        let r = b.build()
+
+        var p = Parameters()
+        #expect(r.route(path: [], parameters: &p) == 1)
     }
-    
-    func testIsSuperSet() throws {
-        let lhs = TrieRouter<Int>()
-        lhs.register(0, at: [">", "Police", "zoom"])
-        lhs.register(0, at: [">", "Police"])
-        lhs.register(1, at: [">", "Depot"])
-        lhs.register(2, at: [">", "Shutters"])
-        lhs.register(3, at: [">", "Cakes"])
-        lhs.register(0, at: [">", "SpacelandSign", "zoom"])
-        lhs.register(4, at: [">", "SpacelandSign"])
 
-        XCTAssertTrue(lhs.isSuperSet(of: lhs))
-        
-        let rhs = TrieRouter<Double>()
-        
-        XCTAssertTrue(lhs.isSuperSet(of: rhs))
-        XCTAssertFalse(rhs.isSuperSet(of: lhs))
-        
-        rhs.register(1, at: [">", "Depot"])
-        rhs.register(2, at: [">", "Shutters"])
-        rhs.register(3, at: [">", "Cakes"])
-        rhs.register(0, at: [">", "SpacelandSign", "zoom"])
-        rhs.register(4, at: [">", "SpacelandSign"])
-        
-        XCTAssertTrue(lhs.isSuperSet(of: rhs))
-        XCTAssertFalse(rhs.isSuperSet(of: lhs))
-        
-        rhs.register(4, at: [">", "SpacelandSign", "Rave"])
+    @Test("Backtracking", .bug("https://github.com/vapor/routing-kit/issues/145"))
+    func backtracking() throws {
+        var b = TrieRouterBuilder<Int>()
+        b.register(1, at: [":provider"])
+        b.register(2, at: ["google", "callback"])
+        b.register(3, at: [":provider", "test"])
+        let r = b.build()
 
-        rhs.forEachBFS(rootPath: [">", "Maronna"]) { absoltePath, output in
-            print(absoltePath)
-        }
-        
-        XCTAssertFalse(lhs.isSuperSet(of: rhs))
-        XCTAssertFalse(rhs.isSuperSet(of: lhs))
+        var p = Parameters()
+        #expect(r.route(path: ["google"], parameters: &p) == 1)
+        #expect(p.get("provider") == "google")
+        #expect(r.route(path: ["google", "test"], parameters: &p) == 3)
+        #expect(p.get("provider") == "google")
     }
-    
-    func testNeighbours() throws {
-        let router = TrieRouter<Int>()
-        router.register(0, at: [">", "the final reich"])
-        router.register(1, at: [">", "the darkest shore"])
-        router.register(2, at: [">", "the shadowed throne"])
-        router.register(3, at: [">", "the tortured path"])
-        router.register(4, at: [">", "the frozen dawn"])
-        router.register(0, at: [">", "the tortured path", "into the storm"])
-        router.register(1, at: [">", "the tortured path", "across the depths"])
-        router.register(2, at: [">", "the tortured path", "beneath the ice"])
-        
-        XCTAssertEqual(router.reduceNeighbours(parentPath: [">", "the darkest shore"], 0) { partialResult, _, _ in
-            return partialResult + 1
-        }, 0)
-        
-        XCTAssertEqual(router.reduceNeighbours(parentPath: [">", "the tortured path"], 0) { partialResult, _, _ in
-            return partialResult + 1
-        }, 3)
+
+    @Test("Wildcard vs Constant Backtrack")
+    func wildcardVsConstantBacktrack() throws {
+        var b = TrieRouterBuilder<Int>()
+        b.register(1, at: [":x", "b"])
+        b.register(2, at: ["a", "c"])
+        let r = b.build()
+
+        var p = Parameters()
+        #expect(r.route(path: ["a", "b"], parameters: &p) == 1)
+        #expect(p.get("x") == "a")
     }
-    
-    func testParametersPrecedence() throws {
-        let router = TrieRouter<Int>()
-        router.options.insert(.caseInsensitive)
-        
-                
-        router.register(
-            1,
-            at: [.constant("home"), .constant("black ops 6"), .parameter("map")]
-        )
 
-        router.register(
-            0,
-            at: [.constant("home"), .parameter("game"), .parameter("map")]
-        )
+    @Test("Multiple wildcard alternatives")
+    func multipleWildcards() throws {
+        var b = TrieRouterBuilder<Int>()
+        b.register(1, at: [":a", ":b", "tail"])
+        b.register(2, at: [":a"])
+        let r = b.build()
 
-        
-        var params: Parameters = .init()
-        let result = router.route(path: ["home", "infinite warfare", "spaceland"] , parameters: &params)
-        
-        XCTAssertNotNil(result)
-        XCTAssertEqual(result, 0)
-        
-        let bo6output = router.route(path: ["home", "black ops 6", "spaceland"], parameters: &params)
-        XCTAssertNotNil(bo6output)
-        XCTAssertEqual(bo6output, 1)
+        var p = Parameters()
+        #expect(r.route(path: ["one", "two", "tail"], parameters: &p) == 1)
+        #expect(p.get("a") == "one")
+        #expect(p.get("b") == "two")
+        #expect(r.route(path: ["one"], parameters: &p) == 2)
+        #expect(p.get("a") == "one")
     }
 }

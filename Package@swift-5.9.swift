@@ -2,7 +2,8 @@
 import PackageDescription
 
 var products: [Product] = [
-    .library(name: "ZTronRoutingKit", targets: ["RoutingKit"])
+    .library(name: "ZTronRoutingKit", targets: ["RoutingKit"]),
+    .library(name: "RoutingKit", targets: ["RoutingKit"]),
 ]
 
 var targets: [Target] = [
@@ -58,7 +59,7 @@ let package = Package(
     ],
     products: products,
     dependencies: [
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.3")
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.6.4")
     ],
     targets: targets
 )

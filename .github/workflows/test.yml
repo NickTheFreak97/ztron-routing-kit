@@ -4,34 +4,53 @@ concurrency:
   cancel-in-progress: true
 on:
   pull_request: { types: [opened, reopened, synchronize, ready_for_review] }
-  push: { branches: [ main ] }
-env:
-  LOG_LEVEL: info
-  SWIFT_DETERMINISTIC_HASHING: 1
+  push: { branches: [main] }
 
 jobs:
   unit-tests:
+    permissions:
+      contents: read
     uses: vapor/ci/.github/workflows/run-unit-tests.yml@main
     secrets: inherit
     with:
       with_musl: true
       with_android: true
       with_linting: true
-  
+      with_windows: true
+      with_wasm: true
+      ios_scheme_name: ztron-routing-kit
+
   upstream-check:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
-    container: swift:6.1-noble
+    container: swift:6.3-noble
     steps:
       - name: Check out self
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           path: routing-kit
       - name: Check out Vapor
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: vapor/vapor
           path: vapor
+          ref: vapor4
       - name: Use local package
         run: swift package --package-path vapor edit routing-kit --path routing-kit
       - name: Run tests
         run: swift test --package-path vapor
+
+  submit-dependencies:
+    permissions:
+      contents: write
+    if: ${{ github.event_name == 'push' }}
+    uses: vapor/ci/.github/workflows/submit-deps.yml@main
+    secrets: inherit
+
+  foundation-linking:
+    uses: vapor/ci/.github/workflows/check-foundation-linking.yml@main
+    permissions:
+      contents: read
+    with:
+      swift_image: swift:6.3-noble
