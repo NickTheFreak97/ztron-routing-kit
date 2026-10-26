@@ -89,63 +89,76 @@ public final class TrieRouter<Output>: Router, CustomStringConvertible {
     ///     var params = Parameters()
     ///     router.route(path: ["users", "Vapor"], parameters: &params)
     ///
+    /// At every node the constant child is tried first. If the rest of the path cannot be matched below it, the
+    /// search backtracks and tries the parameter (or anything) child, so a constant that shares a prefix with a
+    /// parameter never shadows it: with `users/:id` and `users/me/profile` registered, `users/me` resolves to
+    /// `users/:id`. Catch-alls have the lowest precedence and are consulted only when nothing more specific below
+    /// their node matches; the deepest one on the matched prefix wins.
+    ///
+    /// `parameters` receives only the values captured on the matching branch; a path that matches nothing leaves it
+    /// untouched.
+    ///
     /// - Parameters:
     ///   - path: Raw path segments.
     ///   - parameters: Will collect dynamic parameter values.
     /// - Returns: Output of matching route, if found.
     public func route(path: [String], parameters: inout Parameters) -> Output? {
-        // always start at the root node
-        var currentNode: Node = self.root
-
-        let isCaseInsensitive = self.options.contains(.caseInsensitive)
-
-        var currentCatchall: (Node, [String])?
-        
-        // traverse the string path supplied
-        search: for (index, slice) in path.enumerated() {
-            // store catchall in case search hits dead end
-            if let catchall = currentNode.catchall {
-                currentCatchall = (catchall, [String](path.dropFirst(index)))
-            }
-
-            // check the constants first
-            if let constant = currentNode.constants[isCaseInsensitive ? slice.lowercased() : slice] {
-                currentNode = constant
-                continue search
-            }
-
-            // no constants matched, check for dynamic members
-            // including parameters or anythings
-            if let wildcard = currentNode.wildcard {
-                if let name = wildcard.parameter {
-                    parameters.set(name, to: slice)
-                }
-
-                currentNode = wildcard.node
-                continue search
-            }
-
-            // no matches, stop searching
-            if let (catchall, subpaths) = currentCatchall {
-                // fallback to catchall output if we have one
-                parameters.setCatchall(matched: subpaths)
-                return catchall.output
-            } else {
-                return nil
-            }
-        }
-
-        if let output = currentNode.output {
-            // return the currently resolved responder if there hasn't been an early exit.
-            return output
-        } else if let (catchall, subpaths) = currentCatchall {
-            // fallback to catchall output if we have one
-            parameters.setCatchall(matched: subpaths)
-            return catchall.output
-        } else {
-            // current node has no output and there was not catchall
+        let caseInsensitive = self.options.contains(.caseInsensitive)
+        guard let match = self.match(path, from: 0, at: self.root, caseInsensitive: caseInsensitive, parameters: &parameters) else {
             return nil
         }
+        if let start = match.catchallStart {
+            parameters.setCatchall(matched: [String](path.dropFirst(start)))
+        }
+        return match.output
+    }
+
+    /// Matches `path[index...]` below `node`: the constant child first, then the wildcard child, each with the rest of
+    /// the path matched recursively so that a dead end backtracks, then the node's own catch-all. A parameter captured
+    /// on a branch that fails is restored to its previous value, so `parameters` only ever reflects the match.
+    ///
+    /// - Returns: The output and, for a catch-all match, the index of the first segment it swallowed.
+    private func match(
+        _ path: [String],
+        from index: Int,
+        at node: Node,
+        caseInsensitive: Bool,
+        parameters: inout Parameters
+    ) -> (output: Output, catchallStart: Int?)? {
+        guard index < path.count else {
+            // The whole path is consumed: only an output on this very node is a match. A catch-all needs at least
+            // one segment, so this node's catch-all does not apply; the caller falls back to its own.
+            return node.output.map { ($0, nil) }
+        }
+
+        let slice = path[index]
+        if let constant = node.constants[caseInsensitive ? slice.lowercased() : slice],
+            let match = self.match(path, from: index + 1, at: constant, caseInsensitive: caseInsensitive, parameters: &parameters)
+        {
+            return match
+        }
+
+        if let wildcard = node.wildcard {
+            if let name = wildcard.parameter {
+                let previous = parameters.get(name)
+                parameters.set(name, to: slice)
+                if let match = self.match(
+                    path, from: index + 1, at: wildcard.node, caseInsensitive: caseInsensitive, parameters: &parameters)
+                {
+                    return match
+                }
+                parameters.restore(name, to: previous)
+            } else if let match = self.match(
+                path, from: index + 1, at: wildcard.node, caseInsensitive: caseInsensitive, parameters: &parameters)
+            {
+                return match
+            }
+        }
+
+        if let catchall = node.catchall, let output = catchall.output {
+            return (output, index)
+        }
+        return nil
     }
 
     // See `CustomStringConvertible.description`.

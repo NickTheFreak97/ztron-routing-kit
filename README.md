@@ -14,6 +14,15 @@
 
 RoutingKit is a high-performance, trie-node router to route HTTP requests to the correct route handler. It allows for dynamic path parameters to make building web frameworks easy.
 
+## Differences from upstream RoutingKit
+
+The library product is `ZTronRoutingKit` (module `RoutingKit`), and the trie has traversal helpers (`forEach`, `map`,
+`zip`, `merge`, neighbours, breadth-first traversal, DOT export) that upstream does not ship. Matching also differs:
+`route(path:parameters:)` tries the constant child first at every node and, when the rest of the path cannot be matched
+below it, backtracks to the parameter child, so a constant never shadows a parameter route (`users/me` resolves to
+`users/:id` when only `users/me/profile` is registered as a constant). Catch-alls still come last, and a path that
+matches nothing leaves `Parameters` untouched.
+
 ## ZTronNavigationKit
 
 The `ZTronNavigationKit` product (module `ZNavigation`) adds the owner of *where the user is* on top of the trie: a
