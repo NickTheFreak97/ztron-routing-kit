@@ -1,5 +1,10 @@
-import Foundation
-import Logging
+public import Logging
+
+#if canImport(FoundationEssentials)
+    import FoundationEssentials
+#else
+    import Foundation
+#endif
 
 /// Holds dynamic path components that were discovered while routing.
 ///
@@ -101,5 +106,12 @@ public struct Parameters: Sendable {
     /// - Parameter matched: The subpaths matched (percent-encoded if necessary)
     public mutating func setCatchall(matched: [String]) {
         self.catchall = matched.map { $0.removingPercentEncoding ?? $0 }
+    }
+
+    /// Puts back a value that ``get(_:)`` returned earlier, without decoding it again; `nil` removes the parameter.
+    ///
+    /// The router uses it to undo a capture when it backtracks out of a parameter branch.
+    mutating func restore(_ name: String, to value: String?) {
+        self.values[name] = value
     }
 }

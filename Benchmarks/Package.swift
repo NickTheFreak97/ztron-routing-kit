@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "benchmarks",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v15)
     ],
     dependencies: [
         .package(path: "../"),
@@ -15,7 +15,7 @@ let package = Package(
             name: "RouterPerformance",
             dependencies: [
                 .product(name: "Benchmark", package: "package-benchmark"),
-                .product(name: "RoutingKit", package: "routing-kit"),
+                .product(name: "RoutingKit", package: "ztron-routing-kit"),
             ],
             path: "RouterPerformance",
             plugins: [

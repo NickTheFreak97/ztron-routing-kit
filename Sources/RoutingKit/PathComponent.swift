@@ -12,6 +12,16 @@ public enum PathComponent: ExpressibleByStringInterpolation, CustomStringConvert
     /// Represented as `:` followed by the identifier.
     case parameter(String)
 
+    /// A partial parameter component.
+    ///
+    /// The template is the original string representation of the partial parameter.
+    /// The components are the constant parts of the partial parameter.
+    /// The parameters are the dynamic parts of the partial parameter.
+    ///
+    /// For example, the path component `:user-{id}-details` would be represented as
+    /// `partialParameter(template: ":user-{id}-details", components: ["user-", "-details"], parameters: ["id"])`.
+    case partialParameter(template: String, components: [Substring], parameters: [Substring])
+
     /// A dynamic parameter component with discarded value.
     ///
     /// Represented as `*`
@@ -30,7 +40,38 @@ public enum PathComponent: ExpressibleByStringInterpolation, CustomStringConvert
 
     // See `ExpressibleByStringLiteral.init(stringLiteral:)`.
     public init(stringLiteral value: String) {
-        if value.hasPrefix(":") {
+        if value.hasPrefix(":") && value.contains("{") {
+            var components: [Substring] = []
+            var parameters: [Substring] = []
+            var inBraces = false
+            let body = value.dropFirst()
+            var index = body.startIndex
+
+            while index < body.endIndex {
+                let char = body[index]
+                let isLast = body.index(after: index) == body.endIndex
+                switch char {
+                case "{":
+                    inBraces = true
+                    parameters.append("")
+                    components.append("")
+                case "}":
+                    inBraces = false
+                    if !isLast { components.append("") }
+                default:
+                    if inBraces {
+                        if parameters.isEmpty { parameters.append(.init()) }
+                        parameters[parameters.index(before: parameters.endIndex)].append(char)
+                    } else {
+                        if components.isEmpty { components.append(.init()) }
+                        components[components.index(before: components.endIndex)].append(char)
+                    }
+                }
+                body.formIndex(after: &index)
+            }
+            if inBraces { preconditionFailure("Unclosed '{' in path component literal: \(value)") }
+            self = .partialParameter(template: String(body), components: components, parameters: parameters)
+        } else if value.hasPrefix(":") {
             self = .parameter(.init(value.dropFirst()))
         } else if value == "*" {
             self = .anything
@@ -44,14 +85,11 @@ public enum PathComponent: ExpressibleByStringInterpolation, CustomStringConvert
     // See `CustomStringConvertible.description`.
     public var description: String {
         switch self {
-        case .anything:
-            return "*"
-        case .catchall:
-            return "**"
-        case .parameter(let name):
-            return ":" + name
-        case .constant(let constant):
-            return constant
+        case .anything: "*"
+        case .catchall: "**"
+        case .parameter(let name): ":" + name
+        case .constant(let constant): constant
+        case .partialParameter(let template, _, _): template
         }
     }
 }
