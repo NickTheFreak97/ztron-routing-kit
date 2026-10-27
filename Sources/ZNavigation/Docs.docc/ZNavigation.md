@@ -65,6 +65,7 @@ struct HomeScreen: View {
 - ``ZNavigationHub``
 - ``ZPageViewReporter``
 
-### Design
+### Design and adoption
 
 - <doc:UnifiedNavigationDesign>
+- <doc:ZombieTronAdoption>

@@ -254,7 +254,8 @@ ZTronAppShield()
 
 ## 6. Migration (registrations unchanged)
 
-Order of work on the app side, each step shippable on its own:
+Order of work on the app side, each step shippable on its own. The step-by-step routine with the code for each step
+is <doc:ZombieTronAdoption>.
 
 1. Depend on the `ZTronNavigationKit` product of this package next to `ZTronRoutingKit`; `import ZNavigation`.
 2. Add the app's `DatabaseModelResolver` (conforming to ``ZRouteModelResolver``) and the `ZNavigationPath.compat(_:)`
