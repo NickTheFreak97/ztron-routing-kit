@@ -294,21 +294,29 @@ extension ZNavigationPath {
 
 ## Step 3: the app's resolver
 
-One place builds the resolver over the real route table. New file `Routes/Navigation/ZombieTronRouteResolver.swift`:
+There is exactly one route table: `appDelegate.routingService.router`, filled once by `makeNavigationRouter` in
+`didFinishLaunching`. The kit never copies it and never registers into it: ``ZTrieRouteResolver`` keeps a reference
+to the trie it is handed, a ``ZNavigator`` and the ``ZNavigationHub`` hold no routes, and `canRoute` is a lookup in
+that same trie. The resolver belongs next to the router, built lazily on first use so that registration has already
+happened. File `Routes/RoutingServiceProvider.swift`:
 
 ```swift
+import Foundation
 import RoutingKit
+import SwiftUI
 import ZNavigation
 
-enum ZombieTronRouteResolver {
+public final class RoutingServiceProvider: ObservableObject {
+    internal let router: TrieRouter<(Parameters) -> any View> = .init()
+
+    /// The one resolver over the one route table, shared by every tab: one trie, one database cache, one
+    /// Spotlight table. Built on first use, after `makeNavigationRouter` has registered every route.
     @MainActor
-    static func make(routing: RoutingServiceProvider) -> any ZRouteResolver {
-        ZTrieRouteResolver(
-            router: routing.router,                       // internal to the app module: fine here
-            models: DatabaseModelResolver(),
-            scope: { ZRouteModels(ZNavigationPath.compat($0)) }
-        )
-    }
+    internal lazy var navigationResolver: any ZRouteResolver = ZTrieRouteResolver(
+        router: self.router,
+        models: DatabaseModelResolver(),
+        scope: { ZRouteModels(ZNavigationPath.compat($0)) }
+    )
 }
 ```
 
@@ -349,7 +357,7 @@ fileprivate struct AppropriateNavigationView: ViewModifier {
 
     func body(content: Content) -> some View {
         let routing = self.routingService
-        return ZNavigationScope(root: self.root, resolver: { ZombieTronRouteResolver.make(routing: routing) }) {
+        return ZNavigationScope(root: self.root, resolver: { routing.navigationResolver }) {
             content
                 .appToolbar()
         }
@@ -364,7 +372,8 @@ share `>/home` and the hub would keep only the last one: in `ZTronAppShield` the
 changes, and with no routes registered below `>/about` its links are simply disabled.
 
 After this step the app runs unchanged: the existing `NavigationLink(destination:)` sites still work inside both
-backends, and every pushed screen already gets the compatibility breadcrumb from the scope.
+backends, and every pushed screen already gets the compatibility breadcrumb from the scope. The navigator is the only
+per-tab object; the resolver, the trie behind it and the database cache are the shared ones from step 3.
 
 ## Step 5: links that push a value
 
