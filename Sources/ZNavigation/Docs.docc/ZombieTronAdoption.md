@@ -398,10 +398,13 @@ ZRouteLink(map.getSerializedMapModel().getName(), carrying: ZRouteModels(self.ga
 .id(map.getSerializedMapModel().getName())
 ```
 
-`Commander/Tools/ZTronMapToolsPicker.swift`, inside the tools grid:
+`Commander/Tools/ZTronMapToolsPicker.swift`, inside the tools grid. Carry the whole set the tool level received
+before, not only what the old `destinationView(for:)` added: on the `NavigationStack` backend a destination inherits
+the environment of the stack's root, not of the pushing screen, so the game and the map provider inherited today must
+travel with the push (this is also what the resolver of step 1 produces for a deep link, so both paths agree):
 
 ```swift
-ZRouteLink(tool.getName(), carrying: ZRouteModels(self.map, tool)) {
+ZRouteLink(tool.getName(), carrying: ZRouteModels(self.game, self.mapProvider, self.map, tool)) {
     self.ToolViewWithContext(for: tool)
 }
 ```
